@@ -67,3 +67,9 @@ def combine(models, weights=None):
         return list(c.items())
     if isinstance(ret_inst, dict):
         return c
+
+def generate_sentence(model, min_chars=8, max_chars=16):
+    candidate = model.make_short_sentence(max_chars)
+    while len(candidate) < min_chars:
+            candidate = generate_sentence(model)
+    return candidate
