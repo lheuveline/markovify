@@ -48,7 +48,17 @@ def filter_username(text, pattern_list=None):
         return any(pattern in text for pattern in pattern_list)
     else:
         return True
-    
+
+# def clean_text(text):
+
+#     cleaned = ""
+#     for line in text.split("\n"):
+#         for char in line:
+#             if not char.isascii():
+#                 pass
+#             cleaned += line + "\n"
+#     return cleaned
+
 def format_batch(filelist, batch_size=8):
     """Read files from filelist and returns batch of str + updated filelist"""
 
@@ -63,7 +73,7 @@ def format_batch(filelist, batch_size=8):
             text = f.read()
             texts.append(text)
 
-    return filelist, texts
+    return filelist, texts, batch_filelist
 
 def train_model(text):
     model = TextFromComboList(text, retain_original=False)
@@ -83,6 +93,7 @@ def main_loop(args):
             n_cpu = n_cpu - 1
 
     filelist = get_filelist(args.input_dir)
+
     n_files = len(filelist)
     print(f"Found {n_files} files.")
     print("Batch size :", args.batch_size)
@@ -97,33 +108,40 @@ def main_loop(args):
         combined_model = None
         last_step = 0
 
-    model = None
+    #model = None
     last_step = 0
     
     n_batches = math.floor(len(filelist) / args.batch_size)
     n_batches = (n_batches + 1) if len(filelist) % args.batch_size > 0 else n_batches
 
     with Pool(n_cpu - 1) as pool:
-        while tqdm(len(filelist) > 0, total=n_batches):
-            filelist, texts = format_batch(
-                filelist,
-                args.batch_size
-                )
-            intermediate_models = pool.map(train_model, texts)
-            if combined_model:
-                combined_model = markovify.combine(
-                models=[combined_model, intermediate_models]
-                )
-            combined_model = markovify.combine(
-                models=intermediate_models
-                )
-            last_step += args.batch_size
+        with tqdm(total=n_batches) as pbar:
+            while len(filelist) > 0:
+                filelist, texts, _ = format_batch(
+                    filelist,
+                    args.batch_size
+                    )
+                intermediate_models = pool.map(train_model, texts)
 
-            output_name = args.output.split("/")[-1].split(".")[0]
-            output_name = f"{output_name}_{last_step}.json"
-            if last_step % args.save_step == 0 and last_step > 0:
-                if model is not None:
-                    save_model(output_name, combined_model)
+                # Combine model with previous batch models
+                if combined_model:
+                    combined_model = markovify.combine(
+                    models=[combined_model] + intermediate_models
+                    )
+                else:
+                    combined_model = markovify.combine(
+                        models=intermediate_models
+                        )
+                # last_step += args.batch_size
+                last_step += 1 # last_step is not step but epoch !
+
+                output_name = args.output.split("/")[-1].split(".")[0]
+                output_name = f"{output_name}_{last_step}.json"
+                if last_step % args.save_step == 0 and last_step > 0:
+                    if combined_model is not None:
+                        save_model(output_name, combined_model)
+
+                pbar.update(1)
 
     # Save final model
     save_model(output_name, combined_model)
@@ -139,6 +157,7 @@ if __name__ == "__main__":
     parser.add_argument("--save_step", default=100, type=int)
     parser.add_argument("--batch_size", default=8)
     parser.add_argument("--n_cpu", default=8)
+    parser.add_argument("--keep_free_cpu", default=True)
     args = parser.parse_args()
 
     FILTER_PATTERN = args.filter

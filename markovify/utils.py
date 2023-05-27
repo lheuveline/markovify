@@ -12,6 +12,8 @@ def get_model_dict(thing):
             raise ValueError("Not implemented for compiled markovify.Chain")
         return thing.chain.model
     if isinstance(thing, list):
+        print("get_model_dict : ")
+        print(thing)
         return dict(thing)
     if isinstance(thing, dict):
         return thing
