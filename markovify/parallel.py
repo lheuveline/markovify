@@ -69,16 +69,6 @@ def filter_username(text, pattern_list=None):
     else:
         return text
 
-# def clean_text(text):
-
-#     cleaned = ""
-#     for line in text.split("\n"):
-#         for char in line:
-#             if not char.isascii():
-#                 pass
-#             cleaned += line + "\n"
-#     return cleaned
-
 def format_batch(filelist, batch_size=8):
     """Read files from filelist and returns batch of str + updated filelist"""
 
